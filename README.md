@@ -79,3 +79,40 @@ git branch -M main
 git remote add origin https://github.com/SEU_USUARIO/SEU_REPOSITORIO.git
 git push -u origin main
 ```
+
+## Deploy na Vercel
+
+O projeto esta preparado para Vercel com:
+
+- `vercel.json` apontando `npm run build` e saida `dist`.
+- `api/[...path].ts` como funcao serverless catch-all para as rotas `/api/*`.
+- `server/app.ts` compartilhando a configuracao Fastify entre desenvolvimento local e Vercel.
+
+Passo a passo:
+
+1. Suba o projeto para um repositorio no GitHub.
+2. Acesse `https://vercel.com` e entre com sua conta GitHub.
+3. Clique em `Add New...` e depois em `Project`.
+4. Importe o repositorio.
+5. Em `Framework Preset`, deixe `Vite`.
+6. Confira:
+   - Build Command: `npm run build`
+   - Output Directory: `dist`
+   - Install Command: `npm ci`
+7. Adicione as variaveis de ambiente:
+
+```env
+TSE_OFFICIAL_BASE=https://resultados.tse.jus.br/oficial
+TSE_POLL_MS=30000
+CACHE_TTL_MS=25000
+IBGE_GEO_URL=https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo+json&qualidade=minima&intrarregiao=UF
+```
+
+8. Clique em `Deploy`.
+9. Depois do deploy, valide:
+   - `/api/health`
+   - `/api/elections`
+   - carregamento do mapa
+   - selecao de UF e cargo
+
+Observacao: o cache em memoria funciona por instancia serverless e pode ser reiniciado pela plataforma. Para alto trafego, use cache externo, como Redis/KV.
