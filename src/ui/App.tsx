@@ -122,7 +122,7 @@ export function App() {
                 {office.name}
               </option>
             ))}
-          </select>'x'
+          </select>
           <select value={urlState.mode} onChange={(event) => setUrlState({ mode: event.target.value as ViewMode })} aria-label="Modo do mapa">
             <option value="progress">Andamento</option>
             <option value="leader">Lideranca parcial</option>
