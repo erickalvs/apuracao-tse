@@ -85,7 +85,7 @@ git push -u origin main
 O projeto esta preparado para Vercel com:
 
 - `vercel.json` apontando `npm run build` e saida `dist`.
-- `api/[...path].ts` como funcao serverless catch-all para as rotas `/api/*`.
+- `api/*.ts` e `api/geo/states.ts` como funcoes serverless explicitas para as rotas usadas pelo frontend.
 - `server/app.ts` compartilhando a configuracao Fastify entre desenvolvimento local e Vercel.
 
 Passo a passo:
