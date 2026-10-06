@@ -39,8 +39,7 @@ const completionColors = {
 export const marginPalette = (theme = 'dark') => marginColors[theme];
 export const completionPalette = (theme = 'dark') => completionColors[theme];
 const FALLBACK_COLORS = ['#2563eb', '#dc2626', '#059669', '#f59e0b', '#7c3aed', '#0891b2', '#be123c', '#65a30d', '#c2410c', '#0d9488'];
-const MUNICIPAL_CACHE_MS = 30 * 60 * 1000;
-const MUNICIPAL_PARALLELISM = 4;
+const BOOTSTRAP_CACHE_MS = 2 * 60 * 1000;
 const MUNICIPAL_FORMAT_VERSION = 'compact-v2';
 
 const stepOf = (value, limits) => {
@@ -253,8 +252,10 @@ function hydrateSnapshot(geo, office, payload, municipalityPayloads, selectedMun
   const snapshot = baseSnapshot(geo, office);
   snapshot.loading = false;
   snapshot.collectedAt = payload.collectedAt;
-  snapshot.loadedUfs = new Set(previous?.loadedUfs || []);
-  snapshot.loadingMunicipalities = previous?.loadingMunicipalities || null;
+  const bundledMunicipalities = Object.values(payload.municipalitiesByUf || {});
+  snapshot.loadedUfs = new Set(bundledMunicipalities.map(item => item.uf).filter(Boolean));
+  if (!snapshot.loadedUfs.size) snapshot.loadedUfs = new Set(previous?.loadedUfs || []);
+  snapshot.loadingMunicipalities = null;
   snapshot.municipalitiesLoaded = snapshot.loadedUfs.size >= STATE_CODES.length;
   snapshot.national = payload.national || snapshot.national;
   for (const [uf, result] of Object.entries(payload.states || {})) {
@@ -266,7 +267,7 @@ function hydrateSnapshot(geo, office, payload, municipalityPayloads, selectedMun
       if (previousResult?.available) snapshot.results.set(municipality.id, previousResult);
     }
   }
-  for (const municipalityPayload of municipalityPayloads || []) applyMunicipalityPayload(snapshot, geo, municipalityPayload);
+  for (const municipalityPayload of [...bundledMunicipalities, ...(municipalityPayloads || [])]) applyMunicipalityPayload(snapshot, geo, municipalityPayload);
   if (selectedMunicipality && selectedResult) {
     snapshot.results.set(selectedMunicipality.id, { ...selectedResult, id: selectedMunicipality.id, name: selectedMunicipality.name, uf: selectedMunicipality.uf });
   }
@@ -276,24 +277,22 @@ function hydrateSnapshot(geo, office, payload, municipalityPayloads, selectedMun
 
 export function useOfficialSnapshot(geo, office, uf, municipality) {
   const [state, setState] = useState(() => baseSnapshot(geo, office));
-  const municipalCache = useRef(new Map());
+  const bootstrapCache = useRef(new Map());
 
   useEffect(() => {
     const controller = new AbortController();
-    const cancelled = () => controller.signal.aborted;
-    const municipalKey = code => `${office}:${code.toLowerCase()}`;
-    const getMunicipalPayload = async code => {
-      const key = municipalKey(code);
-      const cached = municipalCache.current.get(key);
-      if (cached && Date.now() - cached.at < MUNICIPAL_CACHE_MS) return cached.payload;
-      const payload = await getJson(`/api/municipalities-results?office=${encodeURIComponent(office)}&uf=${code.toLowerCase()}&format=${MUNICIPAL_FORMAT_VERSION}`, controller.signal);
-      municipalCache.current.set(key, { at: Date.now(), payload });
+    const getBootstrapPayload = async () => {
+      const key = `${office}:${MUNICIPAL_FORMAT_VERSION}`;
+      const cached = bootstrapCache.current.get(key);
+      if (cached && Date.now() - cached.at < BOOTSTRAP_CACHE_MS) return cached.payload;
+      const payload = await getJson(`/api/bootstrap?office=${encodeURIComponent(office)}&format=${MUNICIPAL_FORMAT_VERSION}`, controller.signal);
+      bootstrapCache.current.set(key, { at: Date.now(), payload });
       return payload;
     };
     setState(baseSnapshot(geo, office));
     const run = async () => {
       try {
-        const payload = await getJson(`/api/snapshot?office=${encodeURIComponent(office)}`, controller.signal);
+        const payload = await getBootstrapPayload();
         let selectedResult = null;
         if (municipality) {
           const selectedUf = municipality.uf.toLowerCase();
@@ -307,45 +306,6 @@ export function useOfficialSnapshot(geo, office, uf, municipality) {
       }
     };
     run();
-    (async () => {
-      const priority = uf ? [uf, ...STATE_CODES.filter(code => code !== uf)] : STATE_CODES;
-      let nextIndex = 0;
-      const workers = Array.from({ length: Math.min(MUNICIPAL_PARALLELISM, priority.length) }, async () => {
-        while (!cancelled() && nextIndex < priority.length) {
-          const code = priority[nextIndex++];
-          try {
-            setState(previous => {
-              if (previous.office !== office) return previous;
-              return { ...previous, loadingMunicipalities: code };
-            });
-            const payload = await getMunicipalPayload(code);
-            if (cancelled()) return;
-            setState(previous => {
-              if (previous.office !== office) return previous;
-              const loadedUfs = new Set(previous.loadedUfs || []);
-              loadedUfs.add(code);
-              const selectedFullResult = municipality ? previous.results.get(municipality.id) : null;
-              const next = {
-                ...previous,
-                results: new Map(previous.results),
-                loadedUfs,
-                loadingMunicipalities: code,
-                municipalitiesLoaded: loadedUfs.size >= STATE_CODES.length,
-              };
-              applyMunicipalityPayload(next, geo, payload);
-              if (selectedFullResult?.available && !selectedFullResult.compact) {
-                next.results.set(municipality.id, selectedFullResult);
-              }
-              return next;
-            });
-          } catch (error) {
-            if (error.name === 'AbortError') return;
-          }
-        }
-      });
-      await Promise.all(workers);
-      if (!cancelled()) setState(previous => previous.office === office ? { ...previous, loadingMunicipalities: null, municipalitiesLoaded: true } : previous);
-    })();
     const timer = setInterval(run, 30000);
     return () => {
       controller.abort();
