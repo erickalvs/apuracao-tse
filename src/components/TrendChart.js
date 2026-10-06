@@ -72,17 +72,17 @@ export function TrendChart({ points, place, result }) {
           text-anchor=${tick === 0 ? 'start' : tick === 1 ? 'end' : 'middle'}>${tick * 100}%${tick === 0 ? ' das seções' : ''}</text>`)}
 
         ${focus && html`<line class="trend-crosshair" x1=${x(focus.completion)} x2=${x(focus.completion)} y1=${MARGIN.top} y2=${HEIGHT - MARGIN.bottom}/>`}
-        ${SERIES.map(index => html`<path key=${index} class=${'trend-line tone-' + candidates[index].tone}
+        ${SERIES.map(index => html`<path key=${index} class=${'trend-line tone-' + candidates[index].tone} style=${{ stroke: candidates[index].color }}
           d=${points.map((point, i) => `${i ? 'L' : 'M'}${x(point.completion).toFixed(1)} ${y(point.shares[index]).toFixed(1)}`).join('')}/>`)}
         ${SERIES.map(index => html`<g key=${index}>
-          <circle class=${'trend-dot tone-' + candidates[index].tone} cx=${x(last.completion)} cy=${y(last.shares[index])} r="4"/>
+          <circle class=${'trend-dot tone-' + candidates[index].tone} style=${{ fill: candidates[index].color }} cx=${x(last.completion)} cy=${y(last.shares[index])} r="4"/>
           <text class="trend-value" x=${x(last.completion) + 9} y=${labelYs[index]} dy="0.32em">${percent(last.shares[index])}</text>
-          ${focus && focus !== last && html`<circle class=${'trend-dot tone-' + candidates[index].tone} cx=${x(focus.completion)} cy=${y(focus.shares[index])} r="4"/>`}
+          ${focus && focus !== last && html`<circle class=${'trend-dot tone-' + candidates[index].tone} style=${{ fill: candidates[index].color }} cx=${x(focus.completion)} cy=${y(focus.shares[index])} r="4"/>`}
         </g>`)}
       </svg>
       ${focus && html`<div class="trend-tooltip" style=${{ left: Math.max(0, Math.min(width - 216, x(focus.completion) + 10)) + 'px' }}>
         <span>${percent(focus.completion)} das seções</span>
-        ${SERIES.map(index => html`<p key=${index}><i class=${'line-key tone-' + candidates[index].tone}></i><b>${percent(focus.shares[index])}</b>${candidates[index].name}</p>`)}
+        ${SERIES.map(index => html`<p key=${index}><i class=${'line-key tone-' + candidates[index].tone} style=${{ background: candidates[index].color }}></i><b>${percent(focus.shares[index])}</b>${candidates[index].name}</p>`)}
         <span>${new Date(focus.collectedAt).toLocaleString('pt-BR')}</span>
       </div>`}
       <table class="sr-only">
@@ -96,7 +96,7 @@ export function TrendChart({ points, place, result }) {
 
   return html`<section class="insight">
     <h3>Ao longo da apuração</h3>
-    <ul class="trend-legend">${SERIES.map(index => html`<li key=${index}><i class=${'line-key tone-' + candidates[index].tone}></i>${candidates[index].name}</li>`)}</ul>
+    <ul class="trend-legend">${SERIES.map(index => html`<li key=${index}><i class=${'line-key tone-' + candidates[index].tone} style=${{ background: candidates[index].color }}></i>${candidates[index].name}</li>`)}</ul>
     <div class="trend-plot" ref=${ref} style=${{ height: HEIGHT + 'px' }}>
       ${plot || html`<p class="trend-loading">Aguardando novos snapshots oficiais para formar a série.</p>`}
     </div>

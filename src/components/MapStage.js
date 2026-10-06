@@ -1,6 +1,6 @@
 import { useMemo } from 'preact/hooks';
 import { html } from '../lib/html.js';
-import { STATES } from '../data/official.js';
+import { candidateFor, STATES } from '../data/official.js';
 import { ElectionMap } from '../map/ElectionMap.js';
 import { BackButton } from './BackButton.js';
 import { Legend } from './Legend.js';
@@ -16,6 +16,19 @@ function tally(results) {
     sides[result.winner || 0].electorate += result.electorate || 0;
   }
   return sides.map(side => ({ places: side.places, electorateShare: electorate ? side.electorate / electorate : 0 }));
+}
+
+function partyTally(results) {
+  const map = new Map();
+  for (const result of results) {
+    if (!result?.available) continue;
+    const leader = candidateFor(result, result.winner || 0);
+    const key = leader.party || leader.name;
+    const entry = map.get(key) || { label: key, color: leader.color, places: 0 };
+    entry.places += 1;
+    map.set(key, entry);
+  }
+  return [...map.values()].sort((a, b) => b.places - a.places).slice(0, 10);
 }
 
 function mapView({ geo, snapshot, route, municipality, zoneRows }) {
@@ -48,6 +61,7 @@ export function MapStage({ stageRef, geo, snapshot, route, municipality, zoneRow
   const { uf } = route;
   const view = useMemo(() => mapView({ geo, snapshot, route, municipality, zoneRows }), [geo, snapshot, uf, municipality, zoneRows, route.unit]);
   const sides = useMemo(() => tally(view.rows), [view]);
+  const parties = useMemo(() => partyTally(view.rows), [view]);
   const unit = view.units.includes(view.unit) ? view.unit : 'municipios';
 
   return html`<section class="stage" ref=${stageRef} aria-label="Mapa interativo">
@@ -67,6 +81,6 @@ export function MapStage({ stageRef, geo, snapshot, route, municipality, zoneRow
         onState=${route.openState} onMunicipality=${route.openMunicipality} onZone=${route.selectZone}/>
     </div>
 
-    <${Legend} theme=${theme} metric=${route.metric} bubbles=${unit === 'eleitorado'} tally=${sides} noun=${view.noun}/>
+    <${Legend} theme=${theme} metric=${route.metric} bubbles=${unit === 'eleitorado'} tally=${sides} parties=${parties} noun=${view.noun}/>
   </section>`;
 }

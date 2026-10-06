@@ -14,7 +14,7 @@ export function PlaceRow({ tag, name, detail, result, theme, selected, onClick, 
     <span class=${'place-tag' + (tag == null ? ' is-dot' : '')} style=${{ background: color, color: inkOn(color) }}>${tag}</span>
     <span class="place-name"><strong>${name}</strong>${detail && html`<small>${detail}</small>`}</span>
     <${DuelBar} result=${result}/>
-    <b class=${'place-lead tone-' + candidateFor(result, result.winner).tone}>${result.available ? percent(leaderShare(result)) : 'sem dado'}</b>`;
+    <b class=${'place-lead tone-' + candidateFor(result, result.winner).tone} style=${{ color: candidateFor(result, result.winner).color }}>${result.available ? percent(leaderShare(result)) : 'sem dado'}</b>`;
 
   return onClick
     ? html`<button class="place-row" onClick=${onClick} aria-label=${label} aria-pressed=${selected}>${content}</button>`

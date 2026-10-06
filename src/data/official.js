@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 
 export const STATES = {
   RO: ['Rondônia', 0, 'Norte'], AC: ['Acre', 0, 'Norte'], AM: ['Amazonas', 0, 'Norte'],
@@ -38,6 +38,7 @@ const completionColors = {
 };
 export const marginPalette = (theme = 'dark') => marginColors[theme];
 export const completionPalette = (theme = 'dark') => completionColors[theme];
+const FALLBACK_COLORS = ['#2563eb', '#dc2626', '#059669', '#f59e0b', '#7c3aed', '#0891b2', '#be123c', '#65a30d', '#c2410c', '#0d9488'];
 
 const stepOf = (value, limits) => {
   const step = limits.findIndex(limit => value < limit);
@@ -48,8 +49,7 @@ export function resultColor(result, theme = 'dark', metric = 'lider') {
   if (!result?.available) return MAP_EMPTY[theme];
   if (metric === 'apurado') return completionColors[theme][stepOf(result.completion || 0, COMPLETION_STEPS)];
   if (!result.valid || result.completion < .001) return MAP_EMPTY[theme];
-  const margin = Math.abs((result.votes[0] || 0) - (result.votes[1] || 0)) / Math.max(1, result.valid);
-  return marginColors[theme][result.winner || 0][stepOf(margin, MARGIN_STEPS)];
+  return candidateFor(result, result.winner || 0).color || FALLBACK_COLORS[0];
 }
 
 export function candidateFor(result, index) {
@@ -229,13 +229,30 @@ function baseSnapshot(geo, office) {
   };
 }
 
-function hydrateSnapshot(geo, office, payload, selectedMunicipality, selectedResult, previous) {
+function hydrateSnapshot(geo, office, payload, municipalityPayload, selectedMunicipality, selectedResult, previous) {
   const snapshot = baseSnapshot(geo, office);
   snapshot.loading = false;
   snapshot.collectedAt = payload.collectedAt;
   snapshot.national = payload.national || snapshot.national;
   for (const [uf, result] of Object.entries(payload.states || {})) {
     snapshot.states[uf] = { ...result, name: STATES[uf]?.[0] || uf };
+  }
+  if (!municipalityPayload && previous?.results) {
+    for (const municipality of geo.municipalities) {
+      const previousResult = previous.results.get(municipality.id);
+      if (previousResult?.available) snapshot.results.set(municipality.id, previousResult);
+    }
+  }
+  for (const row of municipalityPayload?.municipalities || []) {
+    const municipality = geo.byId.get(String(row.ibgeCode));
+    if (!municipality) continue;
+    snapshot.results.set(municipality.id, {
+      ...row.result,
+      id: municipality.id,
+      name: municipality.name,
+      uf: municipality.uf,
+      tseCode: row.tseCode,
+    });
   }
   if (selectedMunicipality && selectedResult) {
     snapshot.results.set(selectedMunicipality.id, { ...selectedResult, id: selectedMunicipality.id, name: selectedMunicipality.name, uf: selectedMunicipality.uf });
@@ -244,8 +261,9 @@ function hydrateSnapshot(geo, office, payload, selectedMunicipality, selectedRes
   return snapshot;
 }
 
-export function useOfficialSnapshot(geo, office, municipality) {
+export function useOfficialSnapshot(geo, office, uf, municipality) {
   const [state, setState] = useState(() => baseSnapshot(geo, office));
+  const municipalCache = useRef({ key: null, at: 0, payload: null });
 
   useEffect(() => {
     const controller = new AbortController();
@@ -253,13 +271,21 @@ export function useOfficialSnapshot(geo, office, municipality) {
     const run = async () => {
       try {
         const payload = await getJson(`/api/snapshot?office=${encodeURIComponent(office)}`, controller.signal);
+        let municipalityPayload = null;
+        const municipalKey = uf ? `${office}:${uf.toLowerCase()}` : null;
+        if (uf && (municipalCache.current.key !== municipalKey || Date.now() - municipalCache.current.at > 120000)) {
+          municipalityPayload = await getJson(`/api/municipalities-results?office=${encodeURIComponent(office)}&uf=${uf.toLowerCase()}`, controller.signal);
+          municipalCache.current = { key: municipalKey, at: Date.now(), payload: municipalityPayload };
+        } else if (uf && municipalCache.current.key === municipalKey) {
+          municipalityPayload = municipalCache.current.payload;
+        }
         let selectedResult = null;
-        if (municipality) {
+        if (municipality && !municipalityPayload?.municipalities?.some(row => String(row.ibgeCode) === municipality.id)) {
           const uf = municipality.uf.toLowerCase();
           const detail = await getJson(`/api/result?office=${encodeURIComponent(office)}&uf=${uf}&ibge=${municipality.id}`, controller.signal);
           selectedResult = detail.result;
         }
-        setState(previous => hydrateSnapshot(geo, office, payload, municipality, selectedResult, previous.office === office ? previous : null));
+        setState(previous => hydrateSnapshot(geo, office, payload, municipalityPayload, municipality, selectedResult, previous.office === office ? previous : null));
       } catch (error) {
         if (error.name === 'AbortError') return;
         setState(current => ({ ...current, loading: false, error: error.message || 'Erro ao consultar a fonte oficial.' }));

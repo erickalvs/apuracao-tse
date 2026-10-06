@@ -363,7 +363,7 @@ export function ElectionMap({ geo, results, stateResults, uf, municipality, zone
       ${metric === 'apurado'
         ? html`<span>${hovered.result.available ? percent(hovered.result.completion) + ' das seções apuradas' : hovered.result.message}</span>`
         : hovered.result.available
-          ? html`<span><i class=${'swatch tone-' + candidateFor(hovered.result, hovered.result.winner).tone}></i>
+          ? html`<span><i class=${'swatch tone-' + candidateFor(hovered.result, hovered.result.winner).tone} style=${{ background: candidateFor(hovered.result, hovered.result.winner).color }}></i>
               ${candidateFor(hovered.result, hovered.result.winner).party || candidateFor(hovered.result, hovered.result.winner).name} · ${percent(leaderShare(hovered.result))}</span>`
           : html`<span>${hovered.result.message}</span>`}
     </div>`}

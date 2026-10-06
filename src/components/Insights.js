@@ -25,7 +25,7 @@ function Flips({ flips, result }) {
       ? html`<ol class="flips">${flips.map(flip => html`<li key=${flip.uf + flip.collectedAt}>
           <button title="Virada detectada entre snapshots oficiais">
             <time>${hourMinute(flip.collectedAt)}</time>
-            <span><b>${STATES[flip.uf][0]}</b> virou para <i class=${'swatch tone-' + candidateFor(result, flip.winner).tone}></i>${candidateFor(result, flip.winner).name}</span>
+            <span><b>${STATES[flip.uf][0]}</b> virou para <i class=${'swatch tone-' + candidateFor(result, flip.winner).tone} style=${{ background: candidateFor(result, flip.winner).color }}></i>${candidateFor(result, flip.winner).name}</span>
           </button>
         </li>`)}</ol>`
       : html`<p class="note">Nenhuma virada detectada desde que esta sessão começou a consultar a fonte oficial.</p>`}

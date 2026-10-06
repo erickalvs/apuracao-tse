@@ -5,7 +5,7 @@ import { outlook } from '../data/outlook.js';
 
 function Contender({ index, result }) {
   const candidate = candidateFor(result, index);
-  return html`<div class=${'contender tone-' + candidate.tone}>
+  return html`<div class=${'contender tone-' + candidate.tone} style=${{ '--tone': candidate.color, '--tone-text': candidate.color }}>
     ${candidate.photo && html`<img src=${candidate.photo} alt="" width="44" height="44"/>`}
     <div class="contender-id">
       <strong>${candidate.name}</strong>
@@ -23,8 +23,8 @@ export function DuelBar({ result, marker = false }) {
   const a = share(result, 0), b = share(result, 1);
   const label = `${candidateFor(result, 0).name} ${percent(a)}, ${candidateFor(result, 1).name} ${percent(b)}, outros ${percent(Math.max(0, 1 - a - b))}`;
   return html`<div class="duel-bar" role="img" aria-label=${label}>
-    <i class="tone-blue" style=${{ width: a * 100 + '%' }}></i>
-    <i class="tone-red" style=${{ width: b * 100 + '%' }}></i>
+    <i style=${{ width: a * 100 + '%', background: candidateFor(result, 0).color }}></i>
+    <i style=${{ width: b * 100 + '%', background: candidateFor(result, 1).color }}></i>
     ${marker && html`<span class="duel-mid"></span>`}
   </div>`;
 }

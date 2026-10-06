@@ -48,7 +48,7 @@ export function App({ geo }) {
 
   const { uf, office } = route;
   const municipality = route.municipalityId ? geo.byId.get(route.municipalityId) : null;
-  const snapshot = useOfficialSnapshot(geo, office, municipality);
+  const snapshot = useOfficialSnapshot(geo, office, uf, municipality);
   const zoneRows = null;
 
   const scope = municipality

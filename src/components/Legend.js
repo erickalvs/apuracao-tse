@@ -1,25 +1,21 @@
 import { html } from '../lib/html.js';
-import { int, percent } from '../lib/format.js';
-import { CANDIDATES, COMPLETION_STEPS, completionPalette, MARGIN_STEPS, marginPalette } from '../data/official.js';
+import { int } from '../lib/format.js';
+import { COMPLETION_STEPS, completionPalette } from '../data/official.js';
 
 const pts = ratio => String(+(ratio * 100).toFixed(1)).replace('.', ',');
 
 const Ramp = ({ colors }) => html`<span class="legend-ramp">${colors.map(color => html`<i key=${color} style=${{ background: color }}></i>`)}</span>`;
 
-/**
- * Reads the map: how many places each side leads (and the electorate behind them, since area
- * misleads), then the colour scale for the current metric.
- */
-export function Legend({ theme, metric, bubbles, tally, noun }) {
+export function Legend({ theme, metric, bubbles, parties = [], noun }) {
   return html`<div class="legend">
     ${metric === 'apurado'
       ? html`<span class="legend-scale"><${Ramp} colors=${completionPalette(theme)}/>seções apuradas: até ${COMPLETION_STEPS.map(pts).join(' · ')} · mais (%)</span>`
       : html`
-        ${tally.map((side, index) => html`<span class="legend-side" key=${index}>
-          <i class=${'swatch tone-' + CANDIDATES[index].tone}></i>
-          <b>${CANDIDATES[index].name}</b> lidera em ${int(side.places)} ${noun}<span class="legend-electorate">${percent(side.electorateShare, 0)} do eleitorado</span>
+        ${parties.map(item => html`<span class="legend-side" key=${item.label}>
+          <i class="swatch" style=${{ background: item.color }}></i>
+          <b>${item.label}</b> lidera em ${int(item.places)} ${noun}
         </span>`)}
-        <span class="legend-scale">${marginPalette(theme).map((colors, index) => html`<${Ramp} key=${index} colors=${colors}/>`)}vantagem: até ${MARGIN_STEPS.map(pts).join(' · ')} · mais pontos</span>`}
+        <span class="legend-scale">Cores por partido do líder no recorte.</span>`}
     ${bubbles && html`<span class="legend-scale"><i class="legend-bubble"></i>área do círculo = eleitorado</span>`}
   </div>`;
 }

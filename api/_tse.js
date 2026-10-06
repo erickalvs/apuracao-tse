@@ -91,6 +91,20 @@ export async function municipalityCodeFromIbge(electionId, uf, ibgeCode) {
   return null;
 }
 
+export async function municipalitiesForUf(electionId, uf) {
+  const raw = await fetchJson(municipalitiesUrl(electionId));
+  const blocks = Array.isArray(raw?.abr) ? raw.abr : [];
+  const block = blocks.find(item => String(item.cd || '').toLowerCase() === uf);
+  return (block?.mu || [])
+    .map(item => ({
+      tseCode: String(item.cd || ''),
+      ibgeCode: String(item.cdi || ''),
+      name: String(item.nm || ''),
+      uf,
+    }))
+    .filter(item => item.tseCode && item.ibgeCode);
+}
+
 function officialDate(date, time) {
   return date && time ? `${date} ${time}` : null;
 }
@@ -175,6 +189,7 @@ export function normalizeResult(raw, { office, uf, municipality, url }) {
   const electorate = parseNumber(raw?.e?.te);
   const votes = [top[0]?.votes || 0, top[1]?.votes || 0, otherVotes];
   const winner = votes[1] > votes[0] ? 1 : 0;
+  const coloredTop = top.map(withPartyColor);
   return {
     available: true,
     id: municipality || raw?.cdabr || uf || 'br',
@@ -192,11 +207,11 @@ export function normalizeResult(raw, { office, uf, municipality, url }) {
     votes,
     winner,
     candidates: [
-      { ...(top[0] || { name: 'Nao disponivel', party: '', number: '' }), tone: 'blue', color: '#4162e2' },
-      { ...(top[1] || { name: 'Nao disponivel', party: '', number: '' }), tone: 'red', color: '#ee2d35' },
+      { ...(coloredTop[0] || withPartyColor({ name: 'Nao disponivel', party: '', number: '' })), tone: 'blue' },
+      { ...(coloredTop[1] || withPartyColor({ name: 'Nao disponivel', party: '', number: '' })), tone: 'red' },
       { name: 'Outros candidatos', party: '', number: '', votes: otherVotes, tone: 'other', color: '#8c8577' },
     ],
-    allCandidates: candidates,
+    allCandidates: candidates.map(withPartyColor),
     office: office.name,
     countingStatus: raw?.and === 'f' ? 'final' : raw?.and === 'p' ? 'partial' : 'unknown',
     source: {
@@ -209,4 +224,41 @@ export function normalizeResult(raw, { office, uf, municipality, url }) {
       adapterVersion: ADAPTER_VERSION,
     },
   };
+}
+
+const PARTY_COLORS = {
+  PL: '#2563eb',
+  PT: '#dc2626',
+  REPUBLICANOS: '#be123c',
+  PSD: '#0891b2',
+  MDB: '#059669',
+  PP: '#65a30d',
+  UNIÃO: '#c2410c',
+  PSB: '#f59e0b',
+  PDT: '#7c3aed',
+  AVANTE: '#9333ea',
+  NOVO: '#f97316',
+  UP: '#b91c1c',
+  PSTU: '#991b1b',
+  PCB: '#7f1d1d',
+  PCO: '#a16207',
+  DC: '#0d9488',
+  MISSÃO: '#4f46e5',
+  DEMOCRATA: '#64748b',
+};
+const FALLBACK_COLORS = ['#2563eb', '#dc2626', '#059669', '#f59e0b', '#7c3aed', '#0891b2', '#be123c', '#65a30d', '#c2410c', '#0d9488'];
+
+function hashText(value) {
+  let h = 2166136261;
+  for (const char of String(value || '')) h = Math.imul(h ^ char.charCodeAt(0), 16777619);
+  return h >>> 0;
+}
+
+export function colorForParty(party) {
+  const key = String(party || '').toUpperCase();
+  return PARTY_COLORS[key] || FALLBACK_COLORS[hashText(key) % FALLBACK_COLORS.length];
+}
+
+function withPartyColor(candidate) {
+  return { ...candidate, color: colorForParty(candidate.party) };
 }

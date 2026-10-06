@@ -18,7 +18,7 @@ export function UpdatesFeed({ updates, result }) {
             ${update.states.map(uf => html`<span class="update-uf" key=${uf}>${uf}</span>`)}
           </p>
           <p class="update-shares">${[0, 1].map(index => html`<span key=${index}>
-            <i class=${'swatch tone-' + candidates[index].tone}></i>${percent(update.shares[index])}
+            <i class=${'swatch tone-' + candidates[index].tone} style=${{ background: candidates[index].color }}></i>${percent(update.shares[index])}
           </span>`)}</p>
         </li>`)}</ol>`
       : html`<p class="empty">Aguardando nova consulta oficial para comparar atualizações.</p>`}
