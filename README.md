@@ -22,7 +22,7 @@ Os dados mockados nao sao usados pela aplicacao principal. Eles permanecem apena
 - Eleicao geral 2026, primeiro turno.
 - Presidente com resultado nacional e por UF.
 - Governador, Senado, deputado federal, deputado estadual e deputado distrital por UF, conforme disponibilidade oficial.
-- Consulta municipal carregada por UF ao abrir um estado, com resultados oficiais para os municipios daquele recorte.
+- Consulta municipal carregada por UF em background, preenchendo o mapa nacional de municipios com dados oficiais.
 - Atualizacao automatica conservadora a cada 30 segundos no frontend.
 - Painel de andamento com participacao, serie temporal, ultimas atualizacoes, viradas, fonte e lista de candidatos.
 
@@ -41,7 +41,7 @@ Quando um arquivo oficial nao existe para o recorte selecionado, a interface mos
 ## Limitacoes conhecidas
 
 - A visualizacao por zona eleitoral ainda nao foi integrada aos arquivos oficiais.
-- A consulta municipal e feita por UF para evitar varredura nacional massiva no TSE.
+- A consulta municipal e feita por UF, com carregamento progressivo em background para evitar uma unica requisicao nacional massiva ao TSE.
 - A serie temporal e as ultimas atualizacoes sao formadas por snapshots oficiais coletados enquanto a aplicacao esta aberta; a aplicacao nao reconstroi parciais antigas quando a fonte oficial nao fornece esse historico no endpoint consumido.
 - O cache em memoria da Vercel e por instancia serverless.
 - O app nao faz projecoes: lideranca, eleito e situacoes oficiais dependem dos campos publicados pelo TSE.

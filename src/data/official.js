@@ -229,20 +229,7 @@ function baseSnapshot(geo, office) {
   };
 }
 
-function hydrateSnapshot(geo, office, payload, municipalityPayload, selectedMunicipality, selectedResult, previous) {
-  const snapshot = baseSnapshot(geo, office);
-  snapshot.loading = false;
-  snapshot.collectedAt = payload.collectedAt;
-  snapshot.national = payload.national || snapshot.national;
-  for (const [uf, result] of Object.entries(payload.states || {})) {
-    snapshot.states[uf] = { ...result, name: STATES[uf]?.[0] || uf };
-  }
-  if (!municipalityPayload && previous?.results) {
-    for (const municipality of geo.municipalities) {
-      const previousResult = previous.results.get(municipality.id);
-      if (previousResult?.available) snapshot.results.set(municipality.id, previousResult);
-    }
-  }
+function applyMunicipalityPayload(snapshot, geo, municipalityPayload) {
   for (const row of municipalityPayload?.municipalities || []) {
     const municipality = geo.byId.get(String(row.ibgeCode));
     if (!municipality) continue;
@@ -254,6 +241,23 @@ function hydrateSnapshot(geo, office, payload, municipalityPayload, selectedMuni
       tseCode: row.tseCode,
     });
   }
+}
+
+function hydrateSnapshot(geo, office, payload, municipalityPayloads, selectedMunicipality, selectedResult, previous) {
+  const snapshot = baseSnapshot(geo, office);
+  snapshot.loading = false;
+  snapshot.collectedAt = payload.collectedAt;
+  snapshot.national = payload.national || snapshot.national;
+  for (const [uf, result] of Object.entries(payload.states || {})) {
+    snapshot.states[uf] = { ...result, name: STATES[uf]?.[0] || uf };
+  }
+  if (previous?.results) {
+    for (const municipality of geo.municipalities) {
+      const previousResult = previous.results.get(municipality.id);
+      if (previousResult?.available) snapshot.results.set(municipality.id, previousResult);
+    }
+  }
+  for (const municipalityPayload of municipalityPayloads || []) applyMunicipalityPayload(snapshot, geo, municipalityPayload);
   if (selectedMunicipality && selectedResult) {
     snapshot.results.set(selectedMunicipality.id, { ...selectedResult, id: selectedMunicipality.id, name: selectedMunicipality.name, uf: selectedMunicipality.uf });
   }
@@ -263,41 +267,64 @@ function hydrateSnapshot(geo, office, payload, municipalityPayload, selectedMuni
 
 export function useOfficialSnapshot(geo, office, uf, municipality) {
   const [state, setState] = useState(() => baseSnapshot(geo, office));
-  const municipalCache = useRef({ key: null, at: 0, payload: null });
+  const municipalCache = useRef(new Map());
 
   useEffect(() => {
     const controller = new AbortController();
+    const cancelled = () => controller.signal.aborted;
+    const municipalKey = code => `${office}:${code.toLowerCase()}`;
+    const getMunicipalPayload = async code => {
+      const key = municipalKey(code);
+      const cached = municipalCache.current.get(key);
+      if (cached && Date.now() - cached.at < 120000) return cached.payload;
+      const payload = await getJson(`/api/municipalities-results?office=${encodeURIComponent(office)}&uf=${code.toLowerCase()}`, controller.signal);
+      municipalCache.current.set(key, { at: Date.now(), payload });
+      return payload;
+    };
     setState(baseSnapshot(geo, office));
     const run = async () => {
       try {
         const payload = await getJson(`/api/snapshot?office=${encodeURIComponent(office)}`, controller.signal);
-        let municipalityPayload = null;
-        const municipalKey = uf ? `${office}:${uf.toLowerCase()}` : null;
-        if (uf && (municipalCache.current.key !== municipalKey || Date.now() - municipalCache.current.at > 120000)) {
-          municipalityPayload = await getJson(`/api/municipalities-results?office=${encodeURIComponent(office)}&uf=${uf.toLowerCase()}`, controller.signal);
-          municipalCache.current = { key: municipalKey, at: Date.now(), payload: municipalityPayload };
-        } else if (uf && municipalCache.current.key === municipalKey) {
-          municipalityPayload = municipalCache.current.payload;
-        }
+        const municipalityPayloads = [];
+        if (uf) municipalityPayloads.push(await getMunicipalPayload(uf));
         let selectedResult = null;
-        if (municipality && !municipalityPayload?.municipalities?.some(row => String(row.ibgeCode) === municipality.id)) {
+        if (municipality && !municipalityPayloads.some(payload => payload?.municipalities?.some(row => String(row.ibgeCode) === municipality.id))) {
           const uf = municipality.uf.toLowerCase();
           const detail = await getJson(`/api/result?office=${encodeURIComponent(office)}&uf=${uf}&ibge=${municipality.id}`, controller.signal);
           selectedResult = detail.result;
         }
-        setState(previous => hydrateSnapshot(geo, office, payload, municipalityPayload, municipality, selectedResult, previous.office === office ? previous : null));
+        setState(previous => hydrateSnapshot(geo, office, payload, municipalityPayloads, municipality, selectedResult, previous.office === office ? previous : null));
       } catch (error) {
         if (error.name === 'AbortError') return;
         setState(current => ({ ...current, loading: false, error: error.message || 'Erro ao consultar a fonte oficial.' }));
       }
     };
     run();
+    (async () => {
+      const priority = uf ? [uf, ...STATE_CODES.filter(code => code !== uf)] : STATE_CODES;
+      for (const code of priority) {
+        if (cancelled()) return;
+        try {
+          const payload = await getMunicipalPayload(code);
+          if (cancelled()) return;
+          setState(previous => {
+            if (previous.office !== office) return previous;
+            const next = { ...previous, results: new Map(previous.results), loadingMunicipalities: code };
+            applyMunicipalityPayload(next, geo, payload);
+            return next;
+          });
+        } catch (error) {
+          if (error.name === 'AbortError') return;
+        }
+      }
+      if (!cancelled()) setState(previous => previous.office === office ? { ...previous, loadingMunicipalities: null, municipalitiesLoaded: true } : previous);
+    })();
     const timer = setInterval(run, 30000);
     return () => {
       controller.abort();
       clearInterval(timer);
     };
-  }, [geo, office, municipality?.id]);
+  }, [geo, office, uf, municipality?.id]);
 
   return useMemo(() => state, [state]);
 }

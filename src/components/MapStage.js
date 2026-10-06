@@ -68,13 +68,19 @@ export function MapStage({ stageRef, geo, snapshot, route, municipality, zoneRow
   const sides = useMemo(() => tally(view.rows), [view]);
   const parties = useMemo(() => partyTally(view.rows), [view]);
   const unit = view.units.includes(view.unit) ? view.unit : 'municipios';
+  const loadedMunicipalities = useMemo(() => geo.municipalities.reduce((count, item) => count + (snapshot.results.get(item.id)?.available ? 1 : 0), 0), [geo, snapshot]);
+  const hint = snapshot.loading
+    ? 'Consultando arquivos oficiais do TSE...'
+    : snapshot.municipalitiesLoaded
+      ? view.hint
+      : `Carregando municípios oficiais (${loadedMunicipalities}/${geo.municipalities.length})${snapshot.loadingMunicipalities ? ' · ' + snapshot.loadingMunicipalities : ''}`;
 
   return html`<section class="stage" ref=${stageRef} aria-label="Mapa interativo">
     <header class="stage-head">
       <div class="stage-place">
         ${uf && html`<${BackButton} to=${municipality ? STATES[uf][0] : 'Brasil'} article=${municipality ? '' : 'o '} onClick=${route.back}/>`}
         <h2 class="stage-title">${municipality?.name || (uf ? STATES[uf][0] : 'Brasil')}${municipality && html`<span>${STATES[uf][0]}</span>`}</h2>
-        <p class="stage-hint">${snapshot.loading ? 'Consultando arquivos oficiais do TSE...' : view.hint}</p>
+        <p class="stage-hint">${hint}</p>
       </div>
       <${MapModes} units=${view.units} unit=${unit} metric=${route.metric} onUnit=${route.setUnit} onMetric=${route.setMetric}/>
     </header>
