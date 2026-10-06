@@ -31,6 +31,11 @@ function partyTally(results) {
   return [...map.values()].sort((a, b) => b.places - a.places).slice(0, 10);
 }
 
+function placeResult(snapshot, municipality) {
+  const municipal = snapshot.results.get(municipality.id);
+  return municipal?.available ? municipal : snapshot.states[municipality.uf];
+}
+
 function mapView({ geo, snapshot, route, municipality, zoneRows }) {
   const { uf } = route;
   if (municipality) {
@@ -40,7 +45,7 @@ function mapView({ geo, snapshot, route, municipality, zoneRows }) {
   }
   if (uf) {
     return {
-      rows: geo.states[uf].municipalities.map(m => snapshot.results.get(m.id)),
+      rows: geo.states[uf].municipalities.map(m => placeResult(snapshot, m)),
       noun: 'municípios',
       units: ['municipios', 'eleitorado'],
       unit: route.unit,
@@ -49,7 +54,7 @@ function mapView({ geo, snapshot, route, municipality, zoneRows }) {
   }
   const byState = route.unit === 'estados';
   return {
-    rows: byState ? Object.values(snapshot.states) : [...snapshot.results.values()],
+    rows: byState ? Object.values(snapshot.states) : geo.municipalities.map(m => placeResult(snapshot, m)),
     noun: byState ? 'estados' : 'municípios',
     units: ['estados', 'municipios', 'eleitorado'],
     unit: route.unit,

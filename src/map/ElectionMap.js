@@ -37,6 +37,10 @@ export function ElectionMap({ geo, results, stateResults, uf, municipality, zone
   const zones = municipality && zoneRows?.length ? geo.zonesFor(municipality.id) : null;
   const colors = MAP_THEMES[theme];
   const fill = result => resultColor(result, theme, metric);
+  const placeResult = municipality => {
+    const result = results.get(municipality.id);
+    return result?.available ? result : stateResults[municipality.uf];
+  };
   const bubbles = unit === 'eleitorado';
   const byMunicipality = uf || unit !== 'estados';
   const largestFirst = useMemo(() => [...geo.municipalities].sort((a, b) => b.population - a.population), [geo]);
@@ -87,7 +91,7 @@ export function ElectionMap({ geo, results, stateResults, uf, municipality, zone
       const zoomDamping = Math.sqrt(k / cameraFor(geo, null, null, width, height).k);
       for (const m of largestFirst) {
         if (!visible(m)) continue;
-        const result = results.get(m.id);
+        const result = placeResult(m);
         ctx.globalAlpha = emphasis(m) * .92;
         ctx.fillStyle = fill(result);
         ctx.beginPath();
@@ -99,7 +103,7 @@ export function ElectionMap({ geo, results, stateResults, uf, municipality, zone
       for (const m of geo.municipalities) {
         if (!visible(m)) continue;
         ctx.globalAlpha = emphasis(m);
-        ctx.fillStyle = fill(results.get(m.id));
+        ctx.fillStyle = fill(placeResult(m));
         ctx.fill(m.path);
       }
       if (uf) {
@@ -316,7 +320,7 @@ export function ElectionMap({ geo, results, stateResults, uf, municipality, zone
 
   const hovered = hover && (hover.zone != null
     ? { name: zones.names[hover.zoneIndex], result: zoneRows[hover.zoneIndex] }
-    : byMunicipality ? { name: hover.municipality.name + (uf ? '' : ` (${hover.uf})`), result: results.get(hover.municipality.id) }
+    : byMunicipality ? { name: hover.municipality.name + (uf ? '' : ` (${hover.uf})`), result: placeResult(hover.municipality) }
     : { name: stateResults[hover.uf].name, result: stateResults[hover.uf] });
   const showShares = size.width >= MIN_WIDTH_FOR_SHARES;
   // Over a single state fill the label takes a contrasting ink; over many small fills it needs a halo.
