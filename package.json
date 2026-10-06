@@ -1,45 +1,26 @@
 {
-  "name": "apuracao-tse",
+  "name": "open-apuracao-brazil",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
-  "engines": {
-    "node": ">=22"
+  "description": "Painel interativo de apuração eleitoral do Brasil por estado, município e zona, com dados simulados.",
+  "license": "MIT",
+  "author": "Bruno Pinheiro",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bpinheiroms/open-apuracao-brazil.git"
   },
+  "type": "module",
   "scripts": {
-    "dev": "concurrently \"npm:dev:server\" \"npm:dev:web\"",
-    "dev:server": "tsx watch server/index.ts",
-    "dev:web": "vite --host 0.0.0.0",
-    "build": "tsc -p tsconfig.json && vite build",
-    "preview": "vite preview --host 0.0.0.0",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "node --test tests/*.test.js"
   },
   "dependencies": {
-    "@fastify/cors": "^10.0.1",
-    "@tanstack/react-query": "^5.59.16",
-    "d3-geo": "^3.1.1",
-    "fastify": "^5.0.0",
-    "lucide-react": "^0.468.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "zod": "^3.23.8"
+    "htm": "^3.1.1",
+    "preact": "^10.27.2"
   },
   "devDependencies": {
-    "@testing-library/jest-dom": "^6.6.3",
-    "@testing-library/react": "^16.0.1",
-    "@testing-library/user-event": "^14.5.2",
-    "@types/d3-geo": "^3.1.0",
-    "@types/geojson": "^7946.0.16",
-    "@types/node": "^22.9.0",
-    "@types/react": "^18.3.12",
-    "@types/react-dom": "^18.3.1",
-    "@vitejs/plugin-react": "^4.3.3",
-    "concurrently": "^9.1.0",
-    "jsdom": "^25.0.1",
-    "tsx": "^4.19.2",
-    "typescript": "^5.6.3",
-    "vite": "^5.4.10",
-    "vitest": "^2.1.4"
+    "vite": "^7.1.9"
   }
 }
