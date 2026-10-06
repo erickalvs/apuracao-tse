@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { CLOCK } from '../data/clock.js';
-import { OFFICES, STATES } from '../data/mocks.js';
+import { OFFICES, STATES } from '../data/official.js';
 import { normalize } from '../lib/format.js';
 
 export const MAP_UNITS = ['estados', 'municipios', 'eleitorado'];

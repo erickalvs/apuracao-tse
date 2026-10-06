@@ -1,5 +1,5 @@
 import { html } from '../lib/html.js';
-import { OFFICES } from '../data/mocks.js';
+import { OFFICES } from '../data/official.js';
 import { Icon } from './Icon.js';
 
 export function TopBar({ office, onOffice, theme, onToggleTheme, onSearch, onDownload }) {
@@ -7,7 +7,7 @@ export function TopBar({ office, onOffice, theme, onToggleTheme, onSearch, onDow
   return html`<header class="topbar">
     <div class="brand">
       <h1>Apuração 2026</h1>
-      <span class="sim-chip" title="Todos os votos, percentuais e o andamento da apuração são fictícios.">Simulação</span>
+      <span class="sim-chip" title="Resultados carregados dos arquivos oficiais de divulgacao do TSE.">Dados oficiais do TSE</span>
     </div>
 
     <nav class="office-tabs" aria-label="Cargo">

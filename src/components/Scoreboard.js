@@ -1,12 +1,12 @@
 import { html } from '../lib/html.js';
 import { compact, int, marginShare, percent, points, share } from '../lib/format.js';
-import { CANDIDATES } from '../data/mocks.js';
+import { candidateFor } from '../data/official.js';
 import { outlook } from '../data/outlook.js';
 
 function Contender({ index, result }) {
-  const candidate = CANDIDATES[index];
+  const candidate = candidateFor(result, index);
   return html`<div class=${'contender tone-' + candidate.tone}>
-    <img src=${candidate.photo} alt="" width="44" height="44"/>
+    ${candidate.photo && html`<img src=${candidate.photo} alt="" width="44" height="44"/>`}
     <div class="contender-id">
       <strong>${candidate.name}</strong>
       <span><b class="party">${candidate.party} ${candidate.number}</b>${result.winner === index && html`<em class="lead-mark">na frente</em>`}</span>
@@ -21,7 +21,7 @@ function Contender({ index, result }) {
 /** Share bar anchored at both ends, so the 50% mark shows who is closer to winning outright. */
 export function DuelBar({ result, marker = false }) {
   const a = share(result, 0), b = share(result, 1);
-  const label = `${CANDIDATES[0].name} ${percent(a)}, ${CANDIDATES[1].name} ${percent(b)}, outros ${percent(Math.max(0, 1 - a - b))}`;
+  const label = `${candidateFor(result, 0).name} ${percent(a)}, ${candidateFor(result, 1).name} ${percent(b)}, outros ${percent(Math.max(0, 1 - a - b))}`;
   return html`<div class="duel-bar" role="img" aria-label=${label}>
     <i class="tone-blue" style=${{ width: a * 100 + '%' }}></i>
     <i class="tone-red" style=${{ width: b * 100 + '%' }}></i>
@@ -31,8 +31,9 @@ export function DuelBar({ result, marker = false }) {
 
 /** One sentence answering "can this still change?" from what is left to count. */
 function Outlook({ result, majorityRule }) {
+  if (!result.available) return html`<p class="outlook" aria-live="polite"><b>Não disponível na fonte.</b> ${result.message}</p>`;
   const { remaining, gap, status, runoff } = outlook(result, { majorityRule });
-  const leader = CANDIDATES[result.winner].name;
+  const leader = candidateFor(result, result.winner).name;
   const verdict = {
     closed: html`<b>Apuração encerrada.</b>`,
     decided: html`<b>${leader} não pode mais ser alcançado.</b> Faltam cerca de ${compact(remaining)} votos, menos que a diferença de ${compact(gap)}.`,

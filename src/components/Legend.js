@@ -1,6 +1,6 @@
 import { html } from '../lib/html.js';
 import { int, percent } from '../lib/format.js';
-import { CANDIDATES, COMPLETION_STEPS, completionPalette, MARGIN_STEPS, marginPalette } from '../data/mocks.js';
+import { CANDIDATES, COMPLETION_STEPS, completionPalette, MARGIN_STEPS, marginPalette } from '../data/official.js';
 
 const pts = ratio => String(+(ratio * 100).toFixed(1)).replace('.', ',');
 
@@ -17,7 +17,7 @@ export function Legend({ theme, metric, bubbles, tally, noun }) {
       : html`
         ${tally.map((side, index) => html`<span class="legend-side" key=${index}>
           <i class=${'swatch tone-' + CANDIDATES[index].tone}></i>
-          <b>${CANDIDATES[index].party}</b> lidera em ${int(side.places)} ${noun}<span class="legend-electorate">${percent(side.electorateShare, 0)} do eleitorado</span>
+          <b>${CANDIDATES[index].name}</b> lidera em ${int(side.places)} ${noun}<span class="legend-electorate">${percent(side.electorateShare, 0)} do eleitorado</span>
         </span>`)}
         <span class="legend-scale">${marginPalette(theme).map((colors, index) => html`<${Ramp} key=${index} colors=${colors}/>`)}vantagem: até ${MARGIN_STEPS.map(pts).join(' · ')} · mais pontos</span>`}
     ${bubbles && html`<span class="legend-scale"><i class="legend-bubble"></i>área do círculo = eleitorado</span>`}

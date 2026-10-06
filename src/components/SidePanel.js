@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'preact/hooks';
 import { html } from '../lib/html.js';
 import { compact, int, marginShare, normalize, percent, share } from '../lib/format.js';
-import { aggregate, CANDIDATES, REGIONS, STATES } from '../data/mocks.js';
+import { aggregate, candidateFor, REGIONS, STATES } from '../data/official.js';
 import { BackButton } from './BackButton.js';
 import { Icon } from './Icon.js';
 import { PlaceRow } from './PlaceRow.js';
@@ -118,8 +118,8 @@ function ZoneResult({ zone, onClear }) {
     <//>
     <${DuelBar} result=${zone}/>
     <ul class="zone-shares">${[0, 1].map(index => html`<li key=${index}>
-      <i class=${'swatch tone-' + CANDIDATES[index].tone}></i>
-      <span>${CANDIDATES[index].name}</span>
+      <i class=${'swatch tone-' + candidateFor(zone, index).tone}></i>
+      <span>${candidateFor(zone, index).name}</span>
       <b>${percent(share(zone, index))}</b>
       <small>${int(zone.votes[index])} votos</small>
     </li>`)}</ul>
@@ -178,8 +178,8 @@ export function SidePanel({ geo, snapshot, route, municipality, zoneRows, theme,
     <div class="panel-body" role=${insights ? 'tabpanel' : null} inert=${sheet && !sheet.open}>
       ${current === 'lugares' ? places : insights}
       <footer class="panel-foot">
-        <p><strong>Demonstração.</strong> Todos os votos, percentuais e o andamento da apuração são simulados.</p>
-        <p>Malha municipal do IBGE · zonas em áreas aproximadas</p>
+        <p><strong>Dados oficiais do TSE.</strong> Interface independente, com arquivos oficiais consultados por recorte.</p>
+        <p>Malha municipal do IBGE · zonas ainda não integradas à fonte oficial</p>
       </footer>
     </div>
   </aside>`;

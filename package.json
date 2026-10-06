@@ -2,12 +2,12 @@
   "name": "open-apuracao-brazil",
   "version": "0.1.0",
   "private": true,
-  "description": "Painel interativo de apuração eleitoral do Brasil por estado, município e zona, com dados simulados.",
+  "description": "Painel interativo de apuração eleitoral do Brasil com dados oficiais do TSE.",
   "license": "MIT",
-  "author": "Bruno Pinheiro",
+  "author": "Erick Alves",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/bpinheiroms/open-apuracao-brazil.git"
+    "url": "git+https://github.com/erickalvs/apuracao-tse.git"
   },
   "type": "module",
   "scripts": {

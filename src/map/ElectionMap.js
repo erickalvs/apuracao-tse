@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { html } from '../lib/html.js';
 import { percent, leaderShare } from '../lib/format.js';
-import { CANDIDATES, resultColor } from '../data/mocks.js';
+import { candidateFor, resultColor } from '../data/official.js';
 import { Icon } from '../components/Icon.js';
 import { cameraFor } from './geography.js';
 import { MAP_THEMES, inkOn } from './mapTheme.js';
@@ -34,14 +34,14 @@ export function ElectionMap({ geo, results, stateResults, uf, municipality, zone
   const interaction = useRef({}), touches = useRef(new Map());
   const [size, setSize] = useState({ width: 500, height: 500 });
   const [hover, setHover] = useState(null), [view, setView] = useState(null);
-  const zones = municipality && geo.zonesFor(municipality.id);
+  const zones = municipality && zoneRows?.length ? geo.zonesFor(municipality.id) : null;
   const colors = MAP_THEMES[theme];
   const fill = result => resultColor(result, theme, metric);
   const bubbles = unit === 'eleitorado';
   const byMunicipality = uf || unit !== 'estados';
   const largestFirst = useMemo(() => [...geo.municipalities].sort((a, b) => b.population - a.population), [geo]);
   const bubbleScale = LARGEST_BUBBLE * (geo.box[2] - geo.box[0]) / Math.sqrt(LARGEST_ELECTORATE);
-  const labelValue = result => percent(metric === 'apurado' ? result.completion : leaderShare(result), 0);
+  const labelValue = result => result?.available ? percent(metric === 'apurado' ? result.completion : leaderShare(result), 0) : 'sem dado';
 
   useLayoutEffect(() => {
     const resize = new ResizeObserver(entries => {
@@ -361,9 +361,11 @@ export function ElectionMap({ geo, results, stateResults, uf, municipality, zone
     ${hovered && html`<div class="map-tooltip" style=${{ left: Math.max(10, Math.min(size.width - 200, hover.sx + 12)) + 'px', top: Math.max(10, hover.sy - 62) + 'px' }}>
       <strong>${hovered.name}</strong>
       ${metric === 'apurado'
-        ? html`<span>${percent(hovered.result.completion)} das seções apuradas</span>`
-        : html`<span><i class=${'swatch tone-' + CANDIDATES[hovered.result.winner].tone}></i>
-            ${CANDIDATES[hovered.result.winner].name} · ${percent(leaderShare(hovered.result))}</span>`}
+        ? html`<span>${hovered.result.available ? percent(hovered.result.completion) + ' das seções apuradas' : hovered.result.message}</span>`
+        : hovered.result.available
+          ? html`<span><i class=${'swatch tone-' + candidateFor(hovered.result, hovered.result.winner).tone}></i>
+              ${candidateFor(hovered.result, hovered.result.winner).party || candidateFor(hovered.result, hovered.result.winner).name} · ${percent(leaderShare(hovered.result))}</span>`
+          : html`<span>${hovered.result.message}</span>`}
     </div>`}
   </div>`;
 }

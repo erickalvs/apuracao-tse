@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { html } from '../lib/html.js';
 import { normalize } from '../lib/format.js';
-import { STATES } from '../data/mocks.js';
+import { STATES } from '../data/official.js';
 import { Icon } from './Icon.js';
 
 const MAX_MUNICIPALITIES = 25;

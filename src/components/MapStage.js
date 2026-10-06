@@ -1,39 +1,53 @@
 import { useMemo } from 'preact/hooks';
 import { html } from '../lib/html.js';
-import { tally } from '../data/history.js';
-import { STATES } from '../data/mocks.js';
+import { STATES } from '../data/official.js';
 import { ElectionMap } from '../map/ElectionMap.js';
 import { BackButton } from './BackButton.js';
 import { Legend } from './Legend.js';
 import { MapModes } from './MapModes.js';
-import { Timeline } from './Timeline.js';
 
-/** The places the map is currently colouring, the units it can switch between, and what to call them. */
+function tally(results) {
+  const sides = [0, 1].map(() => ({ places: 0, electorate: 0 }));
+  let electorate = 0;
+  for (const result of results) {
+    if (!result?.available) continue;
+    electorate += result.electorate || 0;
+    sides[result.winner || 0].places += 1;
+    sides[result.winner || 0].electorate += result.electorate || 0;
+  }
+  return sides.map(side => ({ places: side.places, electorateShare: electorate ? side.electorate / electorate : 0 }));
+}
+
 function mapView({ geo, snapshot, route, municipality, zoneRows }) {
   const { uf } = route;
   if (municipality) {
     return zoneRows?.length
-      ? { rows: zoneRows, noun: 'zonas', units: [], unit: 'municipios', hint: 'Clique em uma zona para ver o resultado dela.' }
-      : { rows: [snapshot.results.get(municipality.id)], noun: 'município', units: ['municipios', 'eleitorado'], unit: route.unit, hint: 'Este município não tem recorte por zona.' };
+      ? { rows: zoneRows, noun: 'zonas', units: [], unit: 'municipios', hint: 'Recorte por zona ainda não integrado aos arquivos oficiais.' }
+      : { rows: [snapshot.results.get(municipality.id)], noun: 'município', units: ['municipios', 'eleitorado'], unit: route.unit, hint: 'Resultado municipal consultado sob demanda na fonte oficial.' };
   }
   if (uf) {
     return {
-      rows: geo.states[uf].municipalities.map(m => snapshot.results.get(m.id)), noun: 'municípios',
-      units: ['municipios', 'eleitorado'], unit: route.unit, hint: 'Clique em um município para ampliar.',
+      rows: geo.states[uf].municipalities.map(m => snapshot.results.get(m.id)),
+      noun: 'municípios',
+      units: ['municipios', 'eleitorado'],
+      unit: route.unit,
+      hint: 'Clique em um município para consultar o arquivo oficial correspondente.',
     };
   }
   const byState = route.unit === 'estados';
   return {
-    rows: byState ? Object.values(snapshot.states) : [...snapshot.results.values()], noun: byState ? 'estados' : 'municípios',
-    units: ['estados', 'municipios', 'eleitorado'], unit: route.unit, hint: 'Clique em um estado para ver os municípios.',
+    rows: byState ? Object.values(snapshot.states) : [...snapshot.results.values()],
+    noun: byState ? 'estados' : 'municípios',
+    units: ['estados', 'municipios', 'eleitorado'],
+    unit: route.unit,
+    hint: 'Clique em um estado para ver os resultados oficiais por UF.',
   };
 }
 
-export function MapStage({ stageRef, geo, snapshot, route, municipality, zoneRows, theme, clock, flipped }) {
+export function MapStage({ stageRef, geo, snapshot, route, municipality, zoneRows, theme, flipped }) {
   const { uf } = route;
   const view = useMemo(() => mapView({ geo, snapshot, route, municipality, zoneRows }), [geo, snapshot, uf, municipality, zoneRows, route.unit]);
   const sides = useMemo(() => tally(view.rows), [view]);
-  // An open state has no state-level map: fall back to municipalities there.
   const unit = view.units.includes(view.unit) ? view.unit : 'municipios';
 
   return html`<section class="stage" ref=${stageRef} aria-label="Mapa interativo">
@@ -41,7 +55,7 @@ export function MapStage({ stageRef, geo, snapshot, route, municipality, zoneRow
       <div class="stage-place">
         ${uf && html`<${BackButton} to=${municipality ? STATES[uf][0] : 'Brasil'} article=${municipality ? '' : 'o '} onClick=${route.back}/>`}
         <h2 class="stage-title">${municipality?.name || (uf ? STATES[uf][0] : 'Brasil')}${municipality && html`<span>${STATES[uf][0]}</span>`}</h2>
-        <p class="stage-hint">${view.hint}</p>
+        <p class="stage-hint">${snapshot.loading ? 'Consultando arquivos oficiais do TSE...' : view.hint}</p>
       </div>
       <${MapModes} units=${view.units} unit=${unit} metric=${route.metric} onUnit=${route.setUnit} onMetric=${route.setMetric}/>
     </header>
@@ -54,6 +68,5 @@ export function MapStage({ stageRef, geo, snapshot, route, municipality, zoneRow
     </div>
 
     <${Legend} theme=${theme} metric=${route.metric} bubbles=${unit === 'eleitorado'} tally=${sides} noun=${view.noun}/>
-    <${Timeline} clock=${clock}/>
   </section>`;
 }

@@ -1,6 +1,6 @@
 import { html } from '../lib/html.js';
 import { leaderShare, percent } from '../lib/format.js';
-import { CANDIDATES, resultColor } from '../data/mocks.js';
+import { candidateFor, resultColor } from '../data/official.js';
 import { inkOn } from '../map/mapTheme.js';
 import { DuelBar } from './Scoreboard.js';
 
@@ -14,7 +14,7 @@ export function PlaceRow({ tag, name, detail, result, theme, selected, onClick, 
     <span class=${'place-tag' + (tag == null ? ' is-dot' : '')} style=${{ background: color, color: inkOn(color) }}>${tag}</span>
     <span class="place-name"><strong>${name}</strong>${detail && html`<small>${detail}</small>`}</span>
     <${DuelBar} result=${result}/>
-    <b class=${'place-lead tone-' + CANDIDATES[result.winner].tone}>${percent(leaderShare(result))}</b>`;
+    <b class=${'place-lead tone-' + candidateFor(result, result.winner).tone}>${result.available ? percent(leaderShare(result)) : 'sem dado'}</b>`;
 
   return onClick
     ? html`<button class="place-row" onClick=${onClick} aria-label=${label} aria-pressed=${selected}>${content}</button>`
