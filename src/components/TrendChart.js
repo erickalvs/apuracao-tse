@@ -1,7 +1,7 @@
 import { useState } from 'preact/hooks';
 import { html } from '../lib/html.js';
 import { percent } from '../lib/format.js';
-import { CANDIDATES } from '../data/mocks.js';
+import { candidateFor } from '../data/official.js';
 import { useWidth } from '../hooks/useWidth.js';
 
 const HEIGHT = 220;
@@ -10,7 +10,6 @@ const X_TICKS = [0, .5, 1];
 const MIN_LABEL_GAP = 15;
 const SERIES = [0, 1];
 
-/** Y axis in whole points, widened so the lines never touch the frame. */
 function shareScale(points) {
   const values = points.flatMap(point => point.shares.map(value => value * 100));
   const min = Math.min(...values), max = Math.max(...values);
@@ -21,7 +20,6 @@ function shareScale(points) {
   return { low, high, ticks };
 }
 
-/** Pushes the two end labels apart when the lines finish close together. */
 function endLabels(ys) {
   const [upper, lower] = ys[0] <= ys[1] ? [0, 1] : [1, 0];
   const overlap = MIN_LABEL_GAP - (ys[lower] - ys[upper]);
@@ -33,17 +31,18 @@ function endLabels(ys) {
   return placed;
 }
 
-export function TrendChart({ points, place, onMoment }) {
+export function TrendChart({ points, place, result }) {
   const [ref, width] = useWidth();
   const [active, setActive] = useState(null);
   const ready = points.length > 1 && width > 0;
+  const candidates = [candidateFor(result, 0), candidateFor(result, 1)];
 
   let plot = null;
   if (ready) {
     const { low, high, ticks } = shareScale(points);
     const innerWidth = width - MARGIN.left - MARGIN.right, innerHeight = HEIGHT - MARGIN.top - MARGIN.bottom;
     const x = completion => MARGIN.left + completion * innerWidth;
-    const y = value => MARGIN.top + (high - value * 100) / (high - low) * innerHeight;
+    const y = value => MARGIN.top + (high - value * 100) / (high - low || 1) * innerHeight;
     const last = points.at(-1);
     const labelYs = endLabels(last.shares.map(y));
     const focus = active != null ? points[Math.min(active, points.length - 1)] : null;
@@ -54,7 +53,6 @@ export function TrendChart({ points, place, onMoment }) {
         Math.abs(point.completion - completion) < Math.abs(points[best].completion - completion) ? i : best, 0);
     };
     const onKeyDown = event => {
-      if (event.key === 'Enter' && active != null) return onMoment(points[active].minute);
       const step = { ArrowLeft: -1, ArrowRight: 1 }[event.key];
       if (!step) return;
       event.preventDefault();
@@ -63,9 +61,8 @@ export function TrendChart({ points, place, onMoment }) {
 
     plot = html`
       <svg width=${width} height=${HEIGHT} role="img" tabindex="0"
-        aria-label=${`Percentual de cada candidato ao longo da apuração em ${place}. Use as setas para percorrer e Enter para levar o mapa a esse momento.`}
+        aria-label=${`Percentual de cada candidato ao longo das consultas oficiais em ${place}.`}
         onPointerMove=${event => setActive(nearest(event.clientX))} onPointerLeave=${() => setActive(null)}
-        onClick=${event => onMoment(points[nearest(event.clientX)].minute)}
         onKeyDown=${onKeyDown} onBlur=${() => setActive(null)}>
         ${ticks.map(tick => html`<g key=${tick}>
           <line class="trend-grid" x1=${MARGIN.left} x2=${width - MARGIN.right} y1=${y(tick / 100)} y2=${y(tick / 100)}/>
@@ -75,23 +72,23 @@ export function TrendChart({ points, place, onMoment }) {
           text-anchor=${tick === 0 ? 'start' : tick === 1 ? 'end' : 'middle'}>${tick * 100}%${tick === 0 ? ' das seções' : ''}</text>`)}
 
         ${focus && html`<line class="trend-crosshair" x1=${x(focus.completion)} x2=${x(focus.completion)} y1=${MARGIN.top} y2=${HEIGHT - MARGIN.bottom}/>`}
-        ${SERIES.map(index => html`<path key=${index} class=${'trend-line tone-' + CANDIDATES[index].tone}
+        ${SERIES.map(index => html`<path key=${index} class=${'trend-line tone-' + candidates[index].tone}
           d=${points.map((point, i) => `${i ? 'L' : 'M'}${x(point.completion).toFixed(1)} ${y(point.shares[index]).toFixed(1)}`).join('')}/>`)}
         ${SERIES.map(index => html`<g key=${index}>
-          <circle class=${'trend-dot tone-' + CANDIDATES[index].tone} cx=${x(last.completion)} cy=${y(last.shares[index])} r="4"/>
+          <circle class=${'trend-dot tone-' + candidates[index].tone} cx=${x(last.completion)} cy=${y(last.shares[index])} r="4"/>
           <text class="trend-value" x=${x(last.completion) + 9} y=${labelYs[index]} dy="0.32em">${percent(last.shares[index])}</text>
-          ${focus && focus !== last && html`<circle class=${'trend-dot tone-' + CANDIDATES[index].tone} cx=${x(focus.completion)} cy=${y(focus.shares[index])} r="4"/>`}
+          ${focus && focus !== last && html`<circle class=${'trend-dot tone-' + candidates[index].tone} cx=${x(focus.completion)} cy=${y(focus.shares[index])} r="4"/>`}
         </g>`)}
       </svg>
       ${focus && html`<div class="trend-tooltip" style=${{ left: Math.max(0, Math.min(width - 216, x(focus.completion) + 10)) + 'px' }}>
         <span>${percent(focus.completion)} das seções</span>
-        ${SERIES.map(index => html`<p key=${index}><i class=${'line-key tone-' + CANDIDATES[index].tone}></i><b>${percent(focus.shares[index])}</b>${CANDIDATES[index].name}</p>`)}
-        <span>Clique para ver o mapa nesse momento</span>
+        ${SERIES.map(index => html`<p key=${index}><i class=${'line-key tone-' + candidates[index].tone}></i><b>${percent(focus.shares[index])}</b>${candidates[index].name}</p>`)}
+        <span>${new Date(focus.collectedAt).toLocaleString('pt-BR')}</span>
       </div>`}
       <table class="sr-only">
-        <caption>Percentual dos votos válidos conforme as seções foram apuradas em ${place}</caption>
-        <thead><tr><th>Seções apuradas</th>${SERIES.map(index => html`<th key=${index}>${CANDIDATES[index].name}</th>`)}</tr></thead>
-        <tbody>${points.filter((_, i) => i % 4 === 0 || i === points.length - 1).map(point => html`<tr key=${point.minute}>
+        <caption>Percentual dos votos válidos conforme os snapshots oficiais consultados em ${place}</caption>
+        <thead><tr><th>Seções apuradas</th>${SERIES.map(index => html`<th key=${index}>${candidates[index].name}</th>`)}</tr></thead>
+        <tbody>${points.map(point => html`<tr key=${point.collectedAt}>
           <td>${percent(point.completion)}</td>${SERIES.map(index => html`<td key=${index}>${percent(point.shares[index])}</td>`)}
         </tr>`)}</tbody>
       </table>`;
@@ -99,9 +96,9 @@ export function TrendChart({ points, place, onMoment }) {
 
   return html`<section class="insight">
     <h3>Ao longo da apuração</h3>
-    <ul class="trend-legend">${SERIES.map(index => html`<li key=${index}><i class=${'line-key tone-' + CANDIDATES[index].tone}></i>${CANDIDATES[index].name}</li>`)}</ul>
+    <ul class="trend-legend">${SERIES.map(index => html`<li key=${index}><i class=${'line-key tone-' + candidates[index].tone}></i>${candidates[index].name}</li>`)}</ul>
     <div class="trend-plot" ref=${ref} style=${{ height: HEIGHT + 'px' }}>
-      ${plot || html`<p class="trend-loading">Recontando as parciais anteriores…</p>`}
+      ${plot || html`<p class="trend-loading">Aguardando novos snapshots oficiais para formar a série.</p>`}
     </div>
   </section>`;
 }

@@ -1104,6 +1104,64 @@ button.place-row:focus-visible {
   text-align: right;
 }
 
+.candidate-list {
+  margin-inline: calc(-1 * var(--space-5));
+}
+
+.candidate-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 42px;
+  padding: 6px var(--space-5);
+  border-top: 1px solid var(--line);
+}
+
+.candidate-list li:first-child {
+  border-top: 0;
+}
+
+.candidate-main {
+  min-width: 0;
+}
+
+.candidate-main strong,
+.candidate-main small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.candidate-main strong {
+  font-weight: 600;
+}
+
+.candidate-main small {
+  color: var(--ink-3);
+  font-size: var(--text-sm);
+}
+
+.candidate-votes {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.candidate-votes b,
+.candidate-votes span {
+  display: block;
+}
+
+.candidate-votes b {
+  font-weight: 600;
+}
+
+.candidate-votes span {
+  color: var(--ink-3);
+  font-size: var(--text-sm);
+}
+
 /* Search dialog */
 
 .search-dialog {

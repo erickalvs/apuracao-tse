@@ -95,6 +95,108 @@ export function aggregate(results) {
   return total;
 }
 
+export function resultSignature(result) {
+  return [
+    result?.source?.generationId,
+    result?.source?.officialGeneratedAt,
+    result?.completion,
+    result?.votes?.join('-'),
+  ].filter(Boolean).join('|');
+}
+
+export function snapshotSignature(snapshot) {
+  return [
+    resultSignature(snapshot.national),
+    ...Object.keys(snapshot.states).sort().map(uf => resultSignature(snapshot.states[uf])),
+  ].join('::');
+}
+
+function sampleFromSnapshot(snapshot) {
+  return {
+    collectedAt: snapshot.collectedAt || new Date().toISOString(),
+    signature: snapshotSignature(snapshot),
+    national: snapshot.national,
+    states: snapshot.states,
+  };
+}
+
+function appendSample(previous, snapshot) {
+  const samples = previous?.samples || [];
+  const sample = sampleFromSnapshot(snapshot);
+  if (samples.at(-1)?.signature === sample.signature) return samples;
+  return [...samples, sample].slice(-80);
+}
+
+function resultForPlace(sample, place, current) {
+  if (place.municipality) return current;
+  if (place.uf) return sample.states[place.uf] || current;
+  return sample.national || current;
+}
+
+export function buildOfficialTrend(samples, place, current) {
+  const rows = samples
+    .map(sample => {
+      const result = resultForPlace(sample, place, current);
+      if (!result?.available) return null;
+      return {
+        collectedAt: sample.collectedAt,
+        completion: result.completion || 0,
+        shares: [
+          result.votes[0] / Math.max(1, result.valid),
+          result.votes[1] / Math.max(1, result.valid),
+        ],
+      };
+    })
+    .filter(Boolean);
+  if (current?.available && !rows.some(row => row.completion === current.completion && row.shares[0] === current.votes[0] / Math.max(1, current.valid))) {
+    rows.push({
+      collectedAt: current.source?.collectedAt || new Date().toISOString(),
+      completion: current.completion || 0,
+      shares: [
+        current.votes[0] / Math.max(1, current.valid),
+        current.votes[1] / Math.max(1, current.valid),
+      ],
+    });
+  }
+  return rows;
+}
+
+export function recentOfficialUpdates(samples, current, { national = false } = {}) {
+  const updates = [];
+  for (let i = samples.length - 1; i > 0 && updates.length < 7; i--) {
+    const now = national ? samples[i].national : current;
+    const before = national ? samples[i - 1].national : null;
+    if (!now?.available || (national && !before?.available)) continue;
+    const sections = national ? Math.max(0, (now.done || 0) - (before.done || 0)) : 0;
+    updates.push({
+      collectedAt: samples[i].collectedAt,
+      sections,
+      states: [],
+      shares: [
+        now.votes[0] / Math.max(1, now.valid),
+        now.votes[1] / Math.max(1, now.valid),
+      ],
+      note: sections ? null : 'Snapshot oficial consultado; sem diferença de seções desde o ponto anterior.',
+    });
+  }
+  return updates;
+}
+
+export function officialFlips(samples, currentStates) {
+  const flips = [];
+  for (let i = 1; i < samples.length; i++) {
+    for (const uf of STATE_CODES) {
+      const before = samples[i - 1].states[uf];
+      const after = samples[i].states[uf];
+      if (before?.available && after?.available && before.winner !== after.winner) {
+        flips.push({ collectedAt: samples[i].collectedAt, uf, winner: after.winner });
+      }
+    }
+  }
+  if (!flips.length && currentStates) return [];
+  return flips.reverse();
+}
+
 async function getJson(url, signal) {
   const response = await fetch(url, { signal });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -123,10 +225,11 @@ function baseSnapshot(geo, office) {
     states,
     national: emptyResult({ id: 'br', name: 'Brasil' }),
     collectedAt: null,
+    samples: [],
   };
 }
 
-function hydrateSnapshot(geo, office, payload, selectedMunicipality, selectedResult) {
+function hydrateSnapshot(geo, office, payload, selectedMunicipality, selectedResult, previous) {
   const snapshot = baseSnapshot(geo, office);
   snapshot.loading = false;
   snapshot.collectedAt = payload.collectedAt;
@@ -137,6 +240,7 @@ function hydrateSnapshot(geo, office, payload, selectedMunicipality, selectedRes
   if (selectedMunicipality && selectedResult) {
     snapshot.results.set(selectedMunicipality.id, { ...selectedResult, id: selectedMunicipality.id, name: selectedMunicipality.name, uf: selectedMunicipality.uf });
   }
+  snapshot.samples = appendSample(previous, snapshot);
   return snapshot;
 }
 
@@ -155,7 +259,7 @@ export function useOfficialSnapshot(geo, office, municipality) {
           const detail = await getJson(`/api/result?office=${encodeURIComponent(office)}&uf=${uf}&ibge=${municipality.id}`, controller.signal);
           selectedResult = detail.result;
         }
-        setState(hydrateSnapshot(geo, office, payload, municipality, selectedResult));
+        setState(previous => hydrateSnapshot(geo, office, payload, municipality, selectedResult, previous.office === office ? previous : null));
       } catch (error) {
         if (error.name === 'AbortError') return;
         setState(current => ({ ...current, loading: false, error: error.message || 'Erro ao consultar a fonte oficial.' }));

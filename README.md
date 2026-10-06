@@ -24,6 +24,7 @@ Os dados mockados nao sao usados pela aplicacao principal. Eles permanecem apena
 - Governador, Senado, deputado federal, deputado estadual e deputado distrital por UF, conforme disponibilidade oficial.
 - Consulta municipal sob demanda ao selecionar um municipio.
 - Atualizacao automatica conservadora a cada 30 segundos no frontend.
+- Painel de andamento com participacao, serie temporal, ultimas atualizacoes, viradas, fonte e lista de candidatos.
 
 Quando um arquivo oficial nao existe para o recorte selecionado, a interface mostra que o dado nao esta disponivel na fonte.
 
@@ -41,6 +42,7 @@ Quando um arquivo oficial nao existe para o recorte selecionado, a interface mos
 
 - A visualizacao por zona eleitoral ainda nao foi integrada aos arquivos oficiais.
 - Municipios aparecem sem dado ate serem selecionados; a consulta municipal e feita sob demanda para evitar varredura massiva no TSE.
+- A serie temporal e as ultimas atualizacoes sao formadas por snapshots oficiais coletados enquanto a aplicacao esta aberta; a aplicacao nao reconstroi parciais antigas quando a fonte oficial nao fornece esse historico no endpoint consumido.
 - O cache em memoria da Vercel e por instancia serverless.
 - O app nao faz projecoes: lideranca, eleito e situacoes oficiais dependem dos campos publicados pelo TSE.
 

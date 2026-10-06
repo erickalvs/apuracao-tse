@@ -40,6 +40,40 @@ function Compare({ rows }) {
   </section>`;
 }
 
+function CandidateList({ result }) {
+  const candidates = result.allCandidates || result.candidates || [];
+  return html`<section class="panel-section">
+    <${SectionHead} title="Candidatos">${candidates.length > 0 && html`<span class="section-count">${int(candidates.length)}</span>`}<//>
+    ${candidates.length
+      ? html`<ul class="candidate-list">${candidates.map(candidate => html`<li key=${candidate.number + candidate.name}>
+          <div class="candidate-main">
+            <strong>${candidate.name}</strong>
+            <small>${candidate.number}${candidate.party ? ' · ' + candidate.party : ''}${candidate.status ? ' · ' + candidate.status : ''}</small>
+          </div>
+          <div class="candidate-votes">
+            <b>${int(candidate.votes || 0)}</b>
+            <span>${percent(candidate.percent || 0)}</span>
+          </div>
+        </li>`)}</ul>`
+      : html`<p class="empty">Não disponível na fonte para este recorte.</p>`}
+  </section>`;
+}
+
+function VoteDetails({ result }) {
+  const source = result.source || {};
+  return html`<section class="panel-section">
+    <${SectionHead} title="Detalhes da votação"/>
+    <dl class="stats">
+      <div class="stat"><dt>Situação</dt><dd>${result.countingStatus === 'final' ? 'Final' : result.countingStatus === 'partial' ? 'Parcial' : 'Não disponível'}</dd></div>
+      <div class="stat"><dt>Seções</dt><dd>${int(result.done)} de ${int(result.sections)}</dd></div>
+      <div class="stat"><dt>Votos válidos</dt><dd>${int(result.valid)}</dd></div>
+      <div class="stat"><dt>Brancos/nulos</dt><dd>${int(result.blank)} / ${int(result.nulls)}</dd></div>
+      <div class="stat"><dt>Dado oficial</dt><dd>${source.officialGeneratedAt || 'Não disponível'}</dd></div>
+      <div class="stat"><dt>Consulta app</dt><dd>${source.collectedAt ? new Date(source.collectedAt).toLocaleString('pt-BR') : 'Não disponível'}</dd></div>
+    </dl>
+  </section>`;
+}
+
 function NationalPanel({ snapshot, theme, onState }) {
   const [sort, setSort] = useState('nome');
   const regions = useMemo(() => REGIONS.map(name => ({
@@ -49,6 +83,8 @@ function NationalPanel({ snapshot, theme, onState }) {
   const states = STATE_CODES.map(uf => ({ uf, name: STATES[uf][0], result: snapshot.states[uf] })).sort(STATE_SORTS[sort].compare);
 
   return html`
+    <${VoteDetails} result=${snapshot.national}/>
+    <${CandidateList} result=${snapshot.national}/>
     <section class="panel-section">
       <${SectionHead} title="Regiões"/>
       <ul class="place-list">${regions.map(({ name, result }) => html`<li key=${name}>
@@ -92,6 +128,8 @@ function StatePanel({ geo, uf, snapshot, theme, route }) {
       </div>
     <//>
     <${Compare} rows=${[{ label: 'Brasil', result: snapshot.national }]}/>
+    <${VoteDetails} result=${result}/>
+    <${CandidateList} result=${result}/>
 
     <section class="panel-section">
       <${SectionHead} title="Municípios"><span class="section-count">${int(all.length)}</span><//>
@@ -135,6 +173,8 @@ function MunicipalityPanel({ municipality, snapshot, zoneRows, theme, route }) {
     <${PlaceHeader} title=${municipality.name} detail=${`${STATES[uf][0]} · ${compact(result.electorate)} eleitores`}
       backTo=${STATES[uf][0]} onBack=${route.back}/>
     <${Compare} rows=${[{ label: STATES[uf][0], result: snapshot.states[uf] }, { label: 'Brasil', result: snapshot.national }]}/>
+    <${VoteDetails} result=${result}/>
+    <${CandidateList} result=${result}/>
     ${selected && html`<${ZoneResult} zone=${selected} onClear=${() => route.selectZone(null)}/>`}
 
     <section class="panel-section">
