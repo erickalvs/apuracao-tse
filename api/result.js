@@ -8,6 +8,7 @@ export default async function handler(request, response) {
     const municipality = query.municipality || await municipalityCodeFromIbge(office.electionId, uf, query.ibge);
     const result = await officialResult({ office, uf, municipality });
     response.setHeader('content-type', 'application/json; charset=utf-8');
+    response.setHeader('cache-control', 's-maxage=30, stale-while-revalidate=120');
     response.statusCode = 200;
     response.end(JSON.stringify({ result }));
   } catch (error) {

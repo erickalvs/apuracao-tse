@@ -39,6 +39,8 @@ const completionColors = {
 export const marginPalette = (theme = 'dark') => marginColors[theme];
 export const completionPalette = (theme = 'dark') => completionColors[theme];
 const FALLBACK_COLORS = ['#2563eb', '#dc2626', '#059669', '#f59e0b', '#7c3aed', '#0891b2', '#be123c', '#65a30d', '#c2410c', '#0d9488'];
+const MUNICIPAL_CACHE_MS = 30 * 60 * 1000;
+const MUNICIPAL_PARALLELISM = 4;
 
 const stepOf = (value, limits) => {
   const step = limits.findIndex(limit => value < limit);
@@ -226,6 +228,9 @@ function baseSnapshot(geo, office) {
     national: emptyResult({ id: 'br', name: 'Brasil' }),
     collectedAt: null,
     samples: [],
+    loadedUfs: new Set(),
+    loadingMunicipalities: null,
+    municipalitiesLoaded: false,
   };
 }
 
@@ -247,6 +252,9 @@ function hydrateSnapshot(geo, office, payload, municipalityPayloads, selectedMun
   const snapshot = baseSnapshot(geo, office);
   snapshot.loading = false;
   snapshot.collectedAt = payload.collectedAt;
+  snapshot.loadedUfs = new Set(previous?.loadedUfs || []);
+  snapshot.loadingMunicipalities = previous?.loadingMunicipalities || null;
+  snapshot.municipalitiesLoaded = snapshot.loadedUfs.size >= STATE_CODES.length;
   snapshot.national = payload.national || snapshot.national;
   for (const [uf, result] of Object.entries(payload.states || {})) {
     snapshot.states[uf] = { ...result, name: STATES[uf]?.[0] || uf };
@@ -276,7 +284,7 @@ export function useOfficialSnapshot(geo, office, uf, municipality) {
     const getMunicipalPayload = async code => {
       const key = municipalKey(code);
       const cached = municipalCache.current.get(key);
-      if (cached && Date.now() - cached.at < 120000) return cached.payload;
+      if (cached && Date.now() - cached.at < MUNICIPAL_CACHE_MS) return cached.payload;
       const payload = await getJson(`/api/municipalities-results?office=${encodeURIComponent(office)}&uf=${code.toLowerCase()}`, controller.signal);
       municipalCache.current.set(key, { at: Date.now(), payload });
       return payload;
@@ -285,15 +293,13 @@ export function useOfficialSnapshot(geo, office, uf, municipality) {
     const run = async () => {
       try {
         const payload = await getJson(`/api/snapshot?office=${encodeURIComponent(office)}`, controller.signal);
-        const municipalityPayloads = [];
-        if (uf) municipalityPayloads.push(await getMunicipalPayload(uf));
         let selectedResult = null;
-        if (municipality && !municipalityPayloads.some(payload => payload?.municipalities?.some(row => String(row.ibgeCode) === municipality.id))) {
-          const uf = municipality.uf.toLowerCase();
-          const detail = await getJson(`/api/result?office=${encodeURIComponent(office)}&uf=${uf}&ibge=${municipality.id}`, controller.signal);
+        if (municipality) {
+          const selectedUf = municipality.uf.toLowerCase();
+          const detail = await getJson(`/api/result?office=${encodeURIComponent(office)}&uf=${selectedUf}&ibge=${municipality.id}`, controller.signal);
           selectedResult = detail.result;
         }
-        setState(previous => hydrateSnapshot(geo, office, payload, municipalityPayloads, municipality, selectedResult, previous.office === office ? previous : null));
+        setState(previous => hydrateSnapshot(geo, office, payload, [], municipality, selectedResult, previous.office === office ? previous : null));
       } catch (error) {
         if (error.name === 'AbortError') return;
         setState(current => ({ ...current, loading: false, error: error.message || 'Erro ao consultar a fonte oficial.' }));
@@ -302,21 +308,41 @@ export function useOfficialSnapshot(geo, office, uf, municipality) {
     run();
     (async () => {
       const priority = uf ? [uf, ...STATE_CODES.filter(code => code !== uf)] : STATE_CODES;
-      for (const code of priority) {
-        if (cancelled()) return;
-        try {
-          const payload = await getMunicipalPayload(code);
-          if (cancelled()) return;
-          setState(previous => {
-            if (previous.office !== office) return previous;
-            const next = { ...previous, results: new Map(previous.results), loadingMunicipalities: code };
-            applyMunicipalityPayload(next, geo, payload);
-            return next;
-          });
-        } catch (error) {
-          if (error.name === 'AbortError') return;
+      let nextIndex = 0;
+      const workers = Array.from({ length: Math.min(MUNICIPAL_PARALLELISM, priority.length) }, async () => {
+        while (!cancelled() && nextIndex < priority.length) {
+          const code = priority[nextIndex++];
+          try {
+            setState(previous => {
+              if (previous.office !== office) return previous;
+              return { ...previous, loadingMunicipalities: code };
+            });
+            const payload = await getMunicipalPayload(code);
+            if (cancelled()) return;
+            setState(previous => {
+              if (previous.office !== office) return previous;
+              const loadedUfs = new Set(previous.loadedUfs || []);
+              loadedUfs.add(code);
+              const selectedFullResult = municipality ? previous.results.get(municipality.id) : null;
+              const next = {
+                ...previous,
+                results: new Map(previous.results),
+                loadedUfs,
+                loadingMunicipalities: code,
+                municipalitiesLoaded: loadedUfs.size >= STATE_CODES.length,
+              };
+              applyMunicipalityPayload(next, geo, payload);
+              if (selectedFullResult?.available && !selectedFullResult.compact) {
+                next.results.set(municipality.id, selectedFullResult);
+              }
+              return next;
+            });
+          } catch (error) {
+            if (error.name === 'AbortError') return;
+          }
         }
-      }
+      });
+      await Promise.all(workers);
       if (!cancelled()) setState(previous => previous.office === office ? { ...previous, loadingMunicipalities: null, municipalitiesLoaded: true } : previous);
     })();
     const timer = setInterval(run, 30000);

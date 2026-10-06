@@ -32,6 +32,7 @@ export default async function handler(request, response) {
       states[uf.toUpperCase()] = await officialResult({ office, uf });
     }));
     response.setHeader('content-type', 'application/json; charset=utf-8');
+    response.setHeader('cache-control', 's-maxage=30, stale-while-revalidate=120');
     response.statusCode = 200;
     response.end(JSON.stringify({ office: office.name, national, states, collectedAt: new Date().toISOString() }));
   } catch (error) {

@@ -15,6 +15,15 @@ async function mapLimit(items, limit, mapper) {
   return results;
 }
 
+function compactResult(result) {
+  if (!result?.available) return result;
+  return {
+    ...result,
+    allCandidates: (result.allCandidates || []).slice(0, 12),
+    compact: true,
+  };
+}
+
 export default async function handler(request, response) {
   try {
     const query = Object.fromEntries(new URL(request.url, 'http://localhost').searchParams);
@@ -28,10 +37,11 @@ export default async function handler(request, response) {
         ibgeCode: municipality.ibgeCode,
         tseCode: municipality.tseCode,
         name: municipality.name,
-        result,
+        result: compactResult(result),
       };
     });
     response.setHeader('content-type', 'application/json; charset=utf-8');
+    response.setHeader('cache-control', 's-maxage=120, stale-while-revalidate=600');
     response.statusCode = 200;
     response.end(JSON.stringify({ uf: uf.toUpperCase(), office: office.name, municipalities: rows, collectedAt: new Date().toISOString() }));
   } catch (error) {
