@@ -41,6 +41,7 @@ export const completionPalette = (theme = 'dark') => completionColors[theme];
 const FALLBACK_COLORS = ['#2563eb', '#dc2626', '#059669', '#f59e0b', '#7c3aed', '#0891b2', '#be123c', '#65a30d', '#c2410c', '#0d9488'];
 const MUNICIPAL_CACHE_MS = 30 * 60 * 1000;
 const MUNICIPAL_PARALLELISM = 4;
+const MUNICIPAL_FORMAT_VERSION = 'compact-v2';
 
 const stepOf = (value, limits) => {
   const step = limits.findIndex(limit => value < limit);
@@ -285,7 +286,7 @@ export function useOfficialSnapshot(geo, office, uf, municipality) {
       const key = municipalKey(code);
       const cached = municipalCache.current.get(key);
       if (cached && Date.now() - cached.at < MUNICIPAL_CACHE_MS) return cached.payload;
-      const payload = await getJson(`/api/municipalities-results?office=${encodeURIComponent(office)}&uf=${code.toLowerCase()}`, controller.signal);
+      const payload = await getJson(`/api/municipalities-results?office=${encodeURIComponent(office)}&uf=${code.toLowerCase()}&format=${MUNICIPAL_FORMAT_VERSION}`, controller.signal);
       municipalCache.current.set(key, { at: Date.now(), payload });
       return payload;
     };
